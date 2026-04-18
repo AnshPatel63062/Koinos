@@ -1,0 +1,232 @@
+//
+//  ARCHITECTURE_DIAGRAM.txt
+//  Koinos
+//
+
+/*
+ 
+ ╔════════════════════════════════════════════════════════════════════════════╗
+ ║                     KOINOS CLEAN ARCHITECTURE                              ║
+ ║                    Authentication & Network Layer                          ║
+ ╚════════════════════════════════════════════════════════════════════════════╝
+
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │ PRESENTATION LAYER (SwiftUI)                                                │
+ ├─────────────────────────────────────────────────────────────────────────────┤
+ │                                                                               │
+ │  ┌──────────────────┐      ┌──────────────────┐                             │
+ │  │   LoginView      │      │  ContentView     │                             │
+ │  │  (SwiftUI)       │◄────►│  (SwiftUI)       │                             │
+ │  └────────┬─────────┘      └────────┬─────────┘                             │
+ │           │                         │                                        │
+ │           │ uses                    │ uses                                   │
+ │           ▼                         ▼                                        │
+ │  ┌──────────────────┐      ┌──────────────────┐                             │
+ │  │LoginViewModel    │      │KoinosViewModel   │                             │
+ │  │@Observable       │      │@Observable       │                             │
+ │  └────────┬─────────┘      └────────┬─────────┘                             │
+ │           │                         │                                        │
+ └───────────┼─────────────────────────┼──────────────────────────────────────┘
+             │                         │
+             │ injects                 │ injects
+             ▼                         ▼
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │ DATA LAYER (Services)                                                       │
+ ├─────────────────────────────────────────────────────────────────────────────┤
+ │                                                                               │
+ │  ┌────────────────────────────────┐   ┌─────────────────────┐               │
+ │  │ FirebaseAuthRepository         │   │  KoinosService      │               │
+ │  │ : AuthRepository protocol      │   │  : KoinosRepository │               │
+ │  │                                │   │                     │               │
+ │  │ ✓ getCurrentUserToken()        │   │ ✓ getInfo()         │               │
+ │  │ ✓ signInAnonymously()          │   │                     │               │
+ │  │ ✓ signInWithEmail()            │   │ (MCP Client calls)  │               │
+ │  │ ✓ signOut()                    │   │                     │               │
+ │  │ ✓ isUserLoggedIn()             │   │                     │               │
+ │  └────────────────────────────────┘   └─────────────────────┘               │
+ │           ▲                                                                   │
+ │           │ implements                                                       │
+ │           │                                                                   │
+ └───────────┼────────────────────────────────────────────────────────────────┘
+             │
+             │ AuthRepository protocol
+             │
+ ┌───────────┼────────────────────────────────────────────────────────────────┐
+ │ DOMAIN LAYER (Protocols & Entities)                                        │
+ ├─────────────────────────────────────────────────────────────────────────────┤
+ │                                                                               │
+ │  ┌──────────────────┐            ┌──────────────────┐                       │
+ │  │ AuthRepository   │            │ KoinosRepository │                       │
+ │  │  (Protocol)      │            │  (Protocol)      │                       │
+ │  └────────┬─────────┘            └────────┬─────────┘                       │
+ │           │                               │                                  │
+ │           │ includes                      │ includes                         │
+ │           ▼                               ▼                                  │
+ │  ┌──────────────────┐            ┌──────────────────┐                       │
+ │  │  AuthError       │            │  (Domain Errors) │                       │
+ │  │  enum:           │            │                  │                       │
+ │  │  • userNotLoggedIn                                 │                       │
+ │  │  • tokenExpired  │            │                  │                       │
+ │  │  • invalidCreds  │            │                  │                       │
+ │  │  • networkError  │            │                  │                       │
+ │  └──────────────────┘            └──────────────────┘                       │
+ │                                                                               │
+ └───────────────────────────────────────────────────────────────────────────────┘
+
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │ INFRASTRUCTURE LAYER (Network)                                              │
+ ├─────────────────────────────────────────────────────────────────────────────┤
+ │                                                                               │
+ │  ┌──────────────────────────────────────────────────┐                       │
+ │  │    AuthorizedNetworkClient                       │                       │
+ │  │                                                  │                       │
+ │  │  - Wraps URLSession                             │                       │
+ │  │  - Automatic Bearer token injection             │                       │
+ │  │  - Flow:                                        │                       │
+ │  │    1. Get token from AuthRepository             │                       │
+ │  │    2. Add "Authorization: Bearer <token>"       │                       │
+ │  │    3. Execute URLSession request                │                       │
+ │  │    4. Return decoded response                   │                       │
+ │  │                                                  │                       │
+ │  │  baseURL: http://localhost:8000                 │                       │
+ │  └──────────────────────────────────────────────────┘                       │
+ │           ▲                                                                   │
+ │           │ uses                                                             │
+ │           │                                                                   │
+ │  ┌────────┴──────────────────────────────────────────┐                      │
+ │  │                                                    │                      │
+ │  │            FirebaseAuthRepository                 │                      │
+ │  │         (Gets current user token)                 │                      │
+ │  │                                                    │                      │
+ │  └────────────────────────────────────────────────────┘                      │
+ │                                                                               │
+ └───────────────────────────────────────────────────────────────────────────────┘
+
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │ EXTERNAL SERVICES                                                           │
+ ├─────────────────────────────────────────────────────────────────────────────┤
+ │                                                                               │
+ │  ┌──────────────────┐                ┌────────────────────┐                 │
+ │  │ Firebase Auth    │                │ FastAPI Backend    │                 │
+ │  │ iOS SDK          │◄──────────────►│ http://localhost   │                 │
+ │  │                  │   HTTP with    │ :8000              │                 │
+ │  │ • signIn()       │   Bearer token │                    │                 │
+ │  │ • getIDToken()   │                │ • Verifies token   │                 │
+ │  │ • signOut()      │                │ • Firebase Admin   │                 │
+ │  └──────────────────┘                │ • Returns data     │                 │
+ │                                      └────────────────────┘                 │
+ │                                                                               │
+ └───────────────────────────────────────────────────────────────────────────────┘
+
+
+ ╔════════════════════════════════════════════════════════════════════════════╗
+ ║                     REQUEST/RESPONSE FLOW                                  ║
+ ╚════════════════════════════════════════════════════════════════════════════╝
+
+ 1. USER LOGS IN
+ ──────────────────────────────────────────────────────────────────────────────
+ 
+    LoginView (UI)
+         │
+         │ User taps "Sign In with Email"
+         ▼
+    LoginViewModel.signInWithEmail()
+         │
+         │ Calls authRepository.signInWithEmail(email, password)
+         ▼
+    FirebaseAuthRepository
+         │
+         │ Calls Auth.auth().signIn(withEmail:password:)
+         ▼
+    Firebase Auth SDK
+         │
+         ▼─────── HTTP POST ─────► Firebase Servers
+         │                              │
+         │◄────── ID Token ─────────────┘
+         │
+    loginViewModel.isLoggedIn = true
+         │
+    Scene routing updates
+         ▼
+    ContentView displays
+
+
+ 2. AUTHENTICATED API CALL
+ ──────────────────────────────────────────────────────────────────────────────
+
+    ContentView (UI)
+         │
+         │ User interaction triggers API call
+         ▼
+    KoinosViewModel.fetchInfo()
+         │
+         │ Calls repository.getInfo()
+         ▼
+    KoinosService.getInfo()
+         │
+         │ Makes HTTP request through AuthorizedNetworkClient
+         ▼
+    AuthorizedNetworkClient.request()
+         │
+         │ 1. Calls authRepository.getCurrentUserToken()
+         ▼
+    FirebaseAuthRepository.getCurrentUserToken()
+         │
+         │ Gets Auth.auth().currentUser
+         │ Calls getIDToken(forcingRefresh: false)
+         │
+         ▼─────── HTTP ─────► Firebase Servers
+         │                         │
+         │◄────── Fresh Token ────┘
+         │
+    Token retrieved
+         │
+         │ 2. Creates HTTP request
+         │ 3. Adds "Authorization: Bearer <token>" header
+         │ 4. Executes request
+         ▼
+         ▼─────── HTTP POST ──────────────────► FastAPI Backend
+         │      Authorization: Bearer <token>  │
+         │      Content-Type: application/json │
+         │                                      │
+         │                                      │ Backend verifies token
+         │                                      │ with Firebase Admin SDK
+         │                                      │
+         │◄─────── JSON Response ─────────────┘
+         │
+    Response decoded
+         │
+    KoinosViewModel.infoData = decoded response
+         │
+    ContentView observes state change
+         ▼
+    UI updates automatically
+
+
+ ╔════════════════════════════════════════════════════════════════════════════╗
+ ║                     FILE STRUCTURE                                         ║
+ ╚════════════════════════════════════════════════════════════════════════════╝
+
+ Koinos/
+ ├── Domain/
+ │   └── AuthRepository.swift           [Protocol + AuthError enum]
+ │   └── KoinosRepository.swift         [Protocol]
+ │
+ ├── Data/
+ │   ├── FirebaseAuthRepository.swift   [AuthRepository implementation]
+ │   ├── KoinosService.swift            [KoinosRepository implementation]
+ │   └── MCPClient.swift                [MCP Client wrapper]
+ │
+ ├── Infrastructure/
+ │   └── AuthorizedNetworkClient.swift  [Authenticated URLSession wrapper]
+ │
+ ├── Presentation/
+ │   ├── LoginView.swift                [SwiftUI login UI]
+ │   ├── LoginViewModel.swift           [@Observable login state]
+ │   ├── ContentView.swift              [SwiftUI main UI]
+ │   └── KoinosViewModel.swift          [@Observable koinos state]
+ │
+ └── KoinosApp.swift                    [App entry point + DI]
+
+
+*/

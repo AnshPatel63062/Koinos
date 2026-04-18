@@ -1,0 +1,334 @@
+//
+//  VOICE_ASSISTANT_QUICK_REFERENCE.txt
+//  Koinos
+//
+
+/*
+
+ ╔════════════════════════════════════════════════════════════════════════════╗
+ ║              VOICE ASSISTANT - QUICK REFERENCE GUIDE                       ║
+ ╚════════════════════════════════════════════════════════════════════════════╝
+
+
+ 📁 FILES CREATED
+ ═════════════════════════════════════════════════════════════════════════════
+
+ Domain Layer:
+ ├─ Domain/VoiceCommand.swift
+ │  └─ VoiceCommand & VoiceResponse entities
+ │
+ └─ Domain/VoiceRepository.swift
+    ├─ VoiceRepository protocol
+    └─ VoiceError enum
+
+ Data Layer:
+ └─ Data/KoinosVoiceRepository.swift
+    └─ Concrete implementation with API communication
+
+ Presentation Layer:
+ ├─ Presentation/VoiceAssistantViewModel.swift
+ │  └─ @Observable state management
+ │
+ └─ Presentation/VoiceAssistantView.swift
+    └─ Chat-like SwiftUI interface
+
+ Updated:
+ └─ KoinosApp.swift
+    └─ Added voice layer and TabView
+
+
+ 🏗️ ARCHITECTURE
+ ═════════════════════════════════════════════════════════════════════════════
+
+ VoiceAssistantView
+         ↓
+    User sends message
+         ↓
+ VoiceAssistantViewModel.sendMessage()
+         ↓
+ KoinosVoiceRepository.processVoiceCommand()
+         ↓
+ Get Firebase Token from AuthRepository
+         ↓
+ POST to http://localhost:8000/api/voice/
+    Header: Authorization: Bearer <token>
+    Body: { "message": "..." }
+         ↓
+ FastAPI Backend processes with LangGraph agent
+         ↓
+ Backend returns JSON: { "message": "AI response" }
+         ↓
+ ViewModel receives response
+         ↓
+ Add message to conversation
+         ↓
+ VoiceAssistantView updates UI
+
+
+ 🔐 SECURITY FLOW
+ ═════════════════════════════════════════════════════════════════════════════
+
+ 1. User sends message through VoiceAssistantView
+ 2. ViewModel calls repository
+ 3. Repository gets current Firebase ID token
+ 4. Token is automatically injected into Bearer header
+ 5. HTTP request sent with token
+ 6. Backend receives request with token
+ 7. Backend verifies token with Firebase Admin SDK
+ 8. Backend extracts user_id from token
+ 9. Backend processes with verified user identity
+ 10. Response returned to iOS app
+ 11. Message displayed in chat
+
+
+ 📱 USER JOURNEY
+ ═════════════════════════════════════════════════════════════════════════════
+
+ 1. User launches app
+ 2. User logs in (Firebase auth)
+ 3. User navigates to "Assistant" tab
+ 4. Koinos AI welcome message appears
+ 5. User types message in input field
+ 6. User taps send button (paperplane icon)
+ 7. "Processing..." indicator appears
+ 8. User's message shows in blue bubble (right side)
+ 9. AI response appears in gray bubble (left side)
+ 10. User can continue conversation
+ 11. User can tap refresh to clear conversation
+ 12. User can tap sign out to return to login
+
+
+ 💬 MESSAGE TYPES
+ ═════════════════════════════════════════════════════════════════════════════
+
+ User Messages:
+ ├─ Blue background
+ ├─ Right-aligned
+ ├─ Example: "Add an expense for $50"
+ └─ Sent with: isUserMessage = true
+
+ AI Messages:
+ ├─ Gray background
+ ├─ Left-aligned
+ ├─ Example: "I've added your $50 expense"
+ └─ Sent with: isUserMessage = false
+
+ Error Messages:
+ ├─ Gray background (like AI)
+ ├─ Left-aligned
+ ├─ Prefixed with "Error: "
+ └─ Also shown in red banner at top
+
+
+ ⚙️ STATES & INDICATORS
+ ═════════════════════════════════════════════════════════════════════════════
+
+ While processing:
+ ├─ "Processing..." text appears in chat
+ ├─ ProgressView spinner shows
+ ├─ Send button is disabled
+ ├─ Input field is disabled
+ └─ isProcessing = true
+
+ When ready:
+ ├─ Send button enabled (if input not empty)
+ ├─ Input field enabled
+ ├─ No spinner shown
+ └─ isProcessing = false
+
+ Error state:
+ ├─ Red banner at top shows error message
+ ├─ Error message also added to chat
+ ├─ User can dismiss banner with X button
+ └─ errorMessage property set
+
+
+ 🔧 CONFIGURATION
+ ═════════════════════════════════════════════════════════════════════════════
+
+ Backend URL:
+ - Default: http://localhost:8000
+ - Endpoint: /api/voice/
+ - Method: POST
+ - Auth: Bearer token in header
+
+ Token source:
+ - Firebase Auth iOS SDK
+ - Via: authRepository.getCurrentUserToken()
+ - Auto-refreshed when needed
+
+ Request format:
+ {
+   "message": "user's input text"
+ }
+
+ Response format:
+ {
+   "message": "AI's response text"
+ }
+
+
+ ✅ REQUIREMENTS MET
+ ═════════════════════════════════════════════════════════════════════════════
+
+ Domain Layer:
+ ✓ VoiceCommand entity
+ ✓ VoiceResponse entity
+ ✓ VoiceRepository protocol with processVoiceCommand()
+
+ Data Layer:
+ ✓ KoinosVoiceRepository implementation
+ ✓ Depends on AuthRepository for token
+ ✓ URLSession POST to /api/voice/
+ ✓ Error handling for 503 and network failures
+
+ Presentation Layer:
+ ✓ VoiceAssistantViewModel with @Observable
+ ✓ messages array for conversation history
+ ✓ isProcessing state for "Thinking..." UI
+ ✓ errorMessage for error display
+ ✓ sendMessage() method
+
+ SwiftUI View:
+ ✓ Chat-like interface
+ ✓ Text input field
+ ✓ Send button
+ ✓ Message bubbles (user vs AI)
+ ✓ Timestamps
+ ✓ Processing indicator
+ ✓ Error banner
+
+ Constraints:
+ ✓ Strict separation (ViewModel vs View)
+ ✓ async/await for all async operations
+ ✓ No callbacks or completion handlers
+ ✓ MainActor for thread safety
+
+
+ 🧪 TESTING CHECKLIST
+ ═════════════════════════════════════════════════════════════════════════════
+
+ Setup:
+ [ ] Backend running at http://localhost:8000
+ [ ] /api/voice/ endpoint implemented
+ [ ] Firebase Admin SDK initialized
+ [ ] Token verification working
+
+ Basic Flow:
+ [ ] App launches
+ [ ] User logs in
+ [ ] Assistant tab appears
+ [ ] Welcome message displays
+ [ ] Input field functional
+ [ ] Send button works
+ [ ] Processing indicator shows
+ [ ] AI response appears
+
+ Error Scenarios:
+ [ ] Empty input → error message "Please enter a message"
+ [ ] Backend down → "Network error" displayed
+ [ ] Invalid token → "Unauthorized" error
+ [ ] 503 error → "Service temporarily unavailable"
+ [ ] Malformed response → "Failed to decode response"
+
+ User Actions:
+ [ ] Type and send message
+ [ ] Message appears in blue bubble
+ [ ] Wait for processing
+ [ ] AI response in gray bubble
+ [ ] Continue conversation
+ [ ] Clear conversation button works
+ [ ] Error banner dismisses with X
+
+
+ 📊 DATA STRUCTURES
+ ═════════════════════════════════════════════════════════════════════════════
+
+ VoiceCommand:
+ {
+   id: UUID,
+   message: String,
+   timestamp: Date
+ }
+
+ VoiceResponse:
+ {
+   id: UUID,
+   message: String,
+   timestamp: Date,
+   isUserMessage: Bool
+ }
+
+ ViewModels state:
+ {
+   messages: [VoiceResponse],
+   currentInput: String,
+   isProcessing: Bool,
+   errorMessage: String?
+ }
+
+
+ 🚀 DEPLOYMENT STEPS
+ ═════════════════════════════════════════════════════════════════════════════
+
+ 1. Verify backend running: curl http://localhost:8000/health
+ 2. Test endpoint: POST /api/voice/ with Bearer token
+ 3. Build & run Koinos app
+ 4. Login with test Firebase account
+ 5. Navigate to Assistant tab
+ 6. Send test message
+ 7. Verify response appears
+ 8. Check backend logs for token verification
+ 9. Test error scenarios
+ 10. Monitor performance
+
+
+ 💡 DEBUGGING TIPS
+ ═════════════════════════════════════════════════════════════════════════════
+
+ No response appearing:
+ ├─ Check backend is running
+ ├─ Check Firebase token is valid
+ ├─ Look for errors in console
+ └─ Verify URL is correct: http://localhost:8000/api/voice/
+
+ Unauthorized error:
+ ├─ Check Firebase Admin SDK initialized on backend
+ ├─ Verify token is being sent in Authorization header
+ ├─ Check token is not expired
+ └─ Re-login to refresh token
+
+ Network error:
+ ├─ Ping backend: ping localhost
+ ├─ Check firewall settings
+ ├─ Verify network connectivity
+ └─ Check localhost:8000 is accessible
+
+ Message not sending:
+ ├─ Check input field is not empty
+ ├─ Check isProcessing is false
+ ├─ Try previous message again
+ └─ Check for errors in ViewModel
+
+ UI not updating:
+ ├─ Verify @Observable decorator
+ ├─ Check @MainActor on sendMessage()
+ ├─ Ensure state properties are var
+ └─ Try hot reload
+
+
+ 📞 SUPPORT
+ ═════════════════════════════════════════════════════════════════════════════
+
+ Documentation:
+ - VOICE_ASSISTANT_IMPLEMENTATION.md - Full details
+ - This file - Quick reference
+ - Code comments - Inline documentation
+
+ Key Files:
+ - VoiceAssistantViewModel.swift - Logic
+ - VoiceAssistantView.swift - UI
+ - KoinosVoiceRepository.swift - API
+ - VoiceRepository.swift - Protocol
+
+*/
