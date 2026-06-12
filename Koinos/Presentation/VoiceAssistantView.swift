@@ -105,8 +105,28 @@ struct VoiceAssistantView: View {
                     ))
                     .textFieldStyle(.roundedBorder)
                     .focused($isInputFocused)
+                    .disabled(viewModel.isProcessing || viewModel.isMicListening)
+                    
+                    // Microphone button
+                    Button(action: {
+                        if viewModel.isMicListening {
+                            Task {
+                                await viewModel.stopVoiceInput()
+                            }
+                        } else {
+                            viewModel.startVoiceInput()
+                        }
+                    }) {
+                        Image(systemName: viewModel.isMicListening ? "mic.fill" : "mic")
+                            .font(.system(size: 16))
+                            .foregroundStyle(viewModel.isMicListening ? .red : .blue)
+                            .frame(width: 40, height: 40)
+                            .background(Color(.systemGray5))
+                            .clipShape(Circle())
+                    }
                     .disabled(viewModel.isProcessing)
                     
+                    // Send button
                     Button(action: {
                         Task {
                             await viewModel.sendMessage()

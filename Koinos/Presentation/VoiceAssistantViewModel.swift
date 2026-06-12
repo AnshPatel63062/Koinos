@@ -11,10 +11,12 @@ import Observation
 @Observable
 class VoiceAssistantViewModel {
     private let voiceRepository: VoiceRepository
+    let speechRecognizer = SpeechRecognizer()
     
     var messages: [VoiceResponse] = []
     var currentInput: String = ""
     var isProcessing: Bool = false
+    var isMicListening: Bool = false
     var errorMessage: String?
     
     init(voiceRepository: VoiceRepository) {
@@ -70,5 +72,24 @@ class VoiceAssistantViewModel {
         messages.append(VoiceResponse(message: "Hello! I'm the Koinos AI Assistant. How can I help you today?", isUserMessage: false))
         currentInput = ""
         errorMessage = nil
+    }
+    
+    @MainActor
+    func startVoiceInput() {
+        isMicListening = true
+        speechRecognizer.startListening()
+    }
+    
+    @MainActor
+    func stopVoiceInput() async {
+        isMicListening = false
+        speechRecognizer.stopListening()
+        currentInput = speechRecognizer.recognizedText
+        // Automatically send the message after voice input
+        if !currentInput.trimmingCharacters(in: .whitespaces).isEmpty {
+            await sendMessage()
+        } else {
+            errorMessage = "No speech detected. Please try again."
+        }
     }
 }

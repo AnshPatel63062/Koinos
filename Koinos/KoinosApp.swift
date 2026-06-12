@@ -14,6 +14,7 @@ struct KoinosApp: App {
     private let loginViewModel: LoginViewModel
     private let koinosViewModel: KoinosViewModel
     private let voiceAssistantViewModel: VoiceAssistantViewModel
+    private let expenseListViewModel: ExpenseListViewModel
     private let networkClient: AuthorizedNetworkClient
     
     init() {
@@ -37,6 +38,10 @@ struct KoinosApp: App {
         // Voice Assistant Layer
         let voiceRepository = KoinosVoiceRepository(authRepository: authRepository)
         self.voiceAssistantViewModel = VoiceAssistantViewModel(voiceRepository: voiceRepository)
+        
+        // Expense Management Layer
+        let expenseRepository = ExpenseService(authRepository: authRepository)
+        self.expenseListViewModel = ExpenseListViewModel(expenseRepository: expenseRepository)
     }
     
     var body: some Scene {
@@ -51,6 +56,11 @@ struct KoinosApp: App {
                     VoiceAssistantView(viewModel: voiceAssistantViewModel)
                         .tabItem {
                             Label("Assistant", systemImage: "mic.circle")
+                        }
+                    
+                    ExpenseListView(viewModel: expenseListViewModel)
+                        .tabItem {
+                            Label("Expenses", systemImage: "creditcard.fill")
                         }
                 }
             } else {
